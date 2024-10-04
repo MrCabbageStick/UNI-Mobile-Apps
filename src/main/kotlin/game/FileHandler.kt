@@ -1,5 +1,6 @@
-package org.example
+package org.example.game
 
+import org.example.tools.Debug
 import java.io.File
 import java.io.IOException
 import java.nio.file.Path

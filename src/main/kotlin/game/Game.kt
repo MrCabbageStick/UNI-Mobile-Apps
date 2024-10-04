@@ -1,5 +1,7 @@
-package org.example
+package org.example.game
 
+import org.example.tools.Debug
+import org.example.tools.mapOfArray
 import java.util.*
 
 enum class Move(val text: String, val emoji: String){
@@ -9,7 +11,7 @@ enum class Move(val text: String, val emoji: String){
     SCISSORS("scissors", "✂");
 
     companion object{
-        fun fromText(text: String): Move{
+        fun fromText(text: String): Move {
             return textMoveMap.getOrDefault(text, INVALID);
         }
 
@@ -40,7 +42,7 @@ class Game(val player: Player) {
     }
 
 
-    fun randomMove(): Move{
+    fun randomMove(): Move {
         return Move.entries[(1..<Move.entries.size).random()];
     }
 
@@ -63,14 +65,17 @@ class Game(val player: Player) {
 
         var roundsLeft = roundCount;
 
+        Debug.printDebug("Rounds left: $roundsLeft")
+
         while(roundsLeft > 0){
-            roundsLeft--;
 
             // Separator
-            println("-".repeat(10));
+            println("\n> Round: ${roundCount - roundsLeft + 1}");
+
+            roundsLeft--;
 
             // Info
-            println("Your points: ${player.points}\n");
+            println("> Your points: ${player.points}\n");
 
             // User move
             print("Your move ${getInputOptionsInfo()}: ");
@@ -98,18 +103,20 @@ class Game(val player: Player) {
             // Game logic
             if(gameMove == userMove){
                 println("PAR");
-                return;
+                println("-".repeat(15));
+                continue;
             }
 
             if(whatBeatsWhat.get(userMove) == gameMove){
                 println("You won: +1 point");
                 player.addPoint();
-                return;
+                println("-".repeat(15));
+                continue;
             }
 
             println("You lost: -1 point");
             player.removePoint()
-
+            println("-".repeat(15));
         }
 
     }
