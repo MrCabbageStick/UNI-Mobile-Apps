@@ -13,4 +13,8 @@ class AppViewModel : ViewModel() {
     private val _message = MutableStateFlow("Żółwik")
     val message = _message.asStateFlow()
     fun setMessage(newValue: String){ _message.value = newValue }
+    
+    private val _hasSmsPermission = MutableStateFlow(false)
+    val hasSmsPermission = _hasSmsPermission.asStateFlow()
+    fun setSmsPermission(hasPermission: Boolean){ _hasSmsPermission.value = hasPermission }
 }

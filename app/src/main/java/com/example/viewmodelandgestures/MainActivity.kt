@@ -1,15 +1,19 @@
 package com.example.viewmodelandgestures
 
+import android.Manifest
 import android.content.Context
-import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Bundle
+import android.telephony.SmsManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -41,8 +45,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.example.viewmodelandgestures.ui.theme.ViewModelAndGesturesTheme
-import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,6 +59,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun checkSmsPermission(): Boolean{
+        val permissionState = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.SEND_SMS
+        )
+
+        return permissionState == PackageManager.PERMISSION_GRANTED
+    }
+
     @Composable
     private fun AppContent(){
 
@@ -65,14 +78,19 @@ class MainActivity : ComponentActivity() {
 
         var totalDrag by remember { mutableFloatStateOf(0f) }
 
+//        var hasSmsPermission = viewModel.hasSmsPermission.collectAsState().value
+
+
         Box(
-            modifier = Modifier.fillMaxSize().pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onVerticalDrag = {change, dragAmount ->
-                        change.consume()
-                        totalDrag += dragAmount
-                    },
-                    onDragEnd = {
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            totalDrag += dragAmount
+                        },
+                        onDragEnd = {
 //                        if(currentDisplay == 0 && totalDrag > 50){
 //                            currentDisplay++
 //                        }
@@ -83,23 +101,24 @@ class MainActivity : ComponentActivity() {
 //                        else if (currentDisplay == 2 && totalDrag < -50){
 //                            currentDisplay--
 //                        }
-                        if(currentDisplay <= 1 && totalDrag > 50){
-                            currentDisplay++
-                        }
-                        else if (currentDisplay >= 1 && totalDrag < -50){
-                            currentDisplay--
-                        }
+                            if (currentDisplay <= 1 && totalDrag > 50) {
+                                currentDisplay++
+                            } else if (currentDisplay >= 1 && totalDrag < -50) {
+                                currentDisplay--
+                            }
 
-                        totalDrag = 0f
-                    }
-                )
-            }
+                            totalDrag = 0f
+                        }
+                    )
+                }
         ) {
             var showNDisplays by remember { mutableIntStateOf(1) }
 
             val isVertical = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
 
-            val verticalScreenModifier = Modifier.fillMaxSize().statusBarsPadding()
+            val verticalScreenModifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
             val horizontalScreenModifier = Modifier.fillMaxHeight()
 
 
@@ -203,6 +222,21 @@ class MainActivity : ComponentActivity() {
         val phoneNumber = viewModel.phoneNumber.collectAsState().value
         val message = viewModel.message.collectAsState().value
 
+        val hasSmsPermission = viewModel.hasSmsPermission.collectAsState().value
+        val requestPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            viewModel.setSmsPermission(isGranted)
+
+            if(!isGranted){
+                Toast.makeText(
+                    this,
+                    "No SMS permissions",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         val context = LocalContext.current
 
         Column(
@@ -211,28 +245,39 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Center,
         ) {
             Button(
-                onClick = { sendSMS(context, phoneNumber, message) }
+                onClick = {
+                    if(!hasSmsPermission){
+                        requestPermissionLauncher.launch(Manifest.permission.SEND_SMS)
+                        return@Button
+                    }
+
+                    try{
+                        sendSMS(context, phoneNumber, message)
+                    }
+                    catch (exc: SecurityException){
+                        Toast.makeText(
+                            context,
+                            "No SMS permissions",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
             ){
                 Text("\uD83D\uDC80 S E N D \uD83D\uDC80")
             }
         }
     }
 
+    @RequiresPermission(Manifest.permission.SEND_SMS)
     private fun sendSMS(context: Context, phoneNumber: String, message: String){
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("sms:$phoneNumber")
-            putExtra("sms_body", message)
-        }
+        val smsManager = SmsManager.getDefault()
 
-        if(intent.resolveActivity(packageManager) == null){
-            Toast.makeText(
-                context,
-                "Unable to open messaging app",
-                Toast.LENGTH_SHORT).show()
+        smsManager.sendTextMessage(phoneNumber, null, message, null, null)
 
-            return
-        }
-
-        startActivity(intent)
+        Toast.makeText(
+            context,
+            "SMS sent",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 }
