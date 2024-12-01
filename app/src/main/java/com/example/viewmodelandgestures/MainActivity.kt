@@ -73,8 +73,8 @@ class MainActivity : ComponentActivity() {
 
         val viewModel: AppViewModel by viewModels()
 
-        var currentDisplay by remember { mutableIntStateOf(0) }
-        val displayCount = 3
+        var currentScreen by remember { mutableIntStateOf(2) }
+        val screenCount = 3
 
         var totalDrag by remember { mutableFloatStateOf(0f) }
 
@@ -101,10 +101,10 @@ class MainActivity : ComponentActivity() {
 //                        else if (currentDisplay == 2 && totalDrag < -50){
 //                            currentDisplay--
 //                        }
-                            if (currentDisplay <= 1 && totalDrag > 50) {
-                                currentDisplay++
-                            } else if (currentDisplay >= 1 && totalDrag < -50) {
-                                currentDisplay--
+                            if (currentScreen <= 1 && totalDrag > 50) {
+                                currentScreen++
+                            } else if (currentScreen >= 1 && totalDrag < -50) {
+                                currentScreen--
                             }
 
                             totalDrag = 0f
@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
         ) {
-            var showNDisplays by remember { mutableIntStateOf(1) }
+            var showNScreens by remember { mutableIntStateOf(1) }
 
             val isVertical = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
 
@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
 
 
             if(isVertical){
-                when(currentDisplay){
+                when(currentScreen){
                     0 -> Screen3(viewModel, verticalScreenModifier)
                     1 -> Screen2(viewModel, verticalScreenModifier)
                     2 -> Screen1(viewModel, verticalScreenModifier)
@@ -133,16 +133,16 @@ class MainActivity : ComponentActivity() {
                 Column (
                     modifier = Modifier.statusBarsPadding()
                 ){
-                    ScreenDropdownMenu(displayCount) {
-                        showNDisplays = it
+                    ScreenDropdownMenu(screenCount, showNScreens) {
+                        showNScreens = it
                     }
 
                     Row (
                         modifier = Modifier.fillMaxSize()
                     ){
-                        if(showNDisplays >= 1) Screen1(viewModel, horizontalScreenModifier.weight(1f))
-                        if(showNDisplays >= 2) Screen2(viewModel, horizontalScreenModifier.weight(1f))
-                        if(showNDisplays >= 3) Screen3(viewModel, horizontalScreenModifier.weight(1f))
+                        if(showNScreens >= 1) Screen1(viewModel, horizontalScreenModifier.weight(1f))
+                        if(showNScreens >= 2) Screen2(viewModel, horizontalScreenModifier.weight(1f))
+                        if(showNScreens >= 3) Screen3(viewModel, horizontalScreenModifier.weight(1f))
                     }
                 }
             }
@@ -150,12 +150,12 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun ScreenDropdownMenu(screenCount: Int, onScreenSelect: (selected: Int) -> Unit){
+    private fun ScreenDropdownMenu(screenCount: Int, currentlyShowing: Int, onScreenSelect: (selected: Int) -> Unit){
         var isExpanded by remember { mutableStateOf(false) }
 
         Box{
             Button(onClick = { isExpanded = true }) {
-                Text("Select screen count")
+                Text("Number of screens: $currentlyShowing")
             }
 
             DropdownMenu(isExpanded, { isExpanded = false }) {
