@@ -144,7 +144,7 @@ fun AppContent(modifier: Modifier = Modifier){
             LazyColumn {
                 items(books.toList()){
                     Row(
-                        Modifier.height(128.dp)
+                        Modifier.height(160.dp)
                     ) {
                         TableCell(it.title)
                         TableCell(it.letterCount.toString())

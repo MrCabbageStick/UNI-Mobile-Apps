@@ -1,29 +1,33 @@
 package com.example.broadcasts
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.Service
-import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.util.Log
-import android.widget.Toast
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
+import kotlin.math.log
 
 class BookDownloadService: Service() {
+    var coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 
     companion object{
-        val hardCodedBooks = listOf(
-            Pair("Great Expectations", "\"Great Expectations\" by Charles Dickens is a novel written in the mid-19th century (Victorian era). The story follows the life of a young orphan named Philip \"Pip\" Pirrip as he navigates social classes, personal aspirations, and the complexities of human relationships. The narrative begins with Pip's fateful encounter with an escaped convict, setting the stage for themes of ambition, morality, and transformation. The opening of the novel introduces Pip as he wanders through a churchyard, reflecting on his family history derived from tombstones. His innocent musings are interrupted by a terrifying confrontation with a convict who demands food and a file, instilling fear in Pip. As Pip grapples with the fear of being discovered stealing food for the convict and the horror of his surroundings, we are drawn into the bleak marshes that shape much of his childhood. This intense encounter not only establishes a sense of danger but also foreshadows Pip's future entanglements with crime and class disparity, as he later must navigate his relationships with figures from both the convict's world and his own lower-class upbringing. (This is an automatically generated summary.)"),
-            Pair("The King in Yellow", "\"The King in Yellow\" by Robert W. Chambers is a collection of short stories written in the late 19th century. This work weaves together themes of madness, decay, and the supernatural, often revolving around a mysterious play that drives its readers to madness. The stories explore the lives of various characters, including the ambitious Hildred Castaigne, who becomes entangled with the dark influence of the titular King in Yellow, a character symbolizing despair and horror. At the start of \"The King in Yellow,\" we are introduced to a disquieting atmosphere set in a future America, where the government has established a 'Lethal Chamber' for those seeking voluntary death. The protagonist, Hildred Castaigne, reflects on his recent convalescence from a head injury and his obsession with a particular play, \"The King in Yellow.\" His fixation leads him to visit a deranged character named Mr. Wilde, a so-called \"Repairer of Reputations,\" who signifies the blurring line between sanity and madness. As Hildred interacts with the characters around him, including the romantic tension involving his cousin Louis and Constance, the story hints at a larger, ominous force that looms over their lives, foreshadowing the psychological and tragic consequences of their obsessions. (This is an automatically generated summary.)"),
-            Pair("The Odyssey", "\"The Odyssey\" by Homer is an epic poem attributed to the ancient Greek poet, believed to have been composed in the late 8th century BC. This foundational work of Western literature chronicles the adventures of Odysseus, a clever hero whose journey home following the Trojan War is fraught with peril, delays, and divine intervention. The central narrative follows Odysseus' attempts to return to his wife, Penelope, and son, Telemachus, while grappling with the challenges posed by suitors in his absence. The opening portion of \"The Odyssey\" sets the stage for the epic tale by introducing the plight of its hero, Odysseus, who is trapped on the island of Ogygia by the goddess Calypso as he longs to return to Ithaca. The narrative begins with a divine council at Olympus, where the gods discuss Odysseus's fate, revealing their sympathy for him, especially from Athena. It quickly shifts to Ithaca, where Telemachus grapples with his father's absence and the disrespectful suitors devouring his household. Prompted by Athena, he resolves to seek news of Odysseus, embarking on a quest that propels him into a broader world of heroism, fate, and familial loyalty. (This is an automatically generated summary.)"),
-            Pair("Some Christmas Stories", "\"Some Christmas Stories\" by Charles Dickens is a collection of short stories written during the mid-19th century. The book captures the spirit of Christmas through various narratives that reflect on childhood, nostalgia, family, and the meaning of the holiday season. The stories delve into themes of joy, sorrow, and the passage of time, often featuring characters that embody the essence of Christmas. The beginning of the book introduces readers to the first story, \"A Christmas Tree,\" where the narrator reflects on a delightful Christmas gathering with children around a beautifully decorated tree. The narrative depicts the enchantment of childhood, evoking vivid memories of toys and festivities that spark the imagination. As the narrator reminisces about their own Christmas tree and the toys that adorned it, we see an exploration of the transition from the innocence of youth to the complexities of adulthood, interspersed with elements of nostalgia and whimsy. The opening sets the tone for a rich emotional journey through the various stories that follow, encapsulating the warmth and reflections associated with the holiday season. (This is an automatically generated summary.)"),
-            Pair("The Tragical History of Doctor Faustus", "\"The Tragical History of Doctor Faustus\" by Christopher Marlowe is a play that was likely written during the late 16th century. This dramatic work explores themes of ambition, desire, and the consequences of pursuing forbidden knowledge through the tragic story of its main character, Dr. Faustus, a scholar who seeks to gain unlimited knowledge and power by making a pact with the devil. The opening of the play introduces us to Dr. Faustus, who is disillusioned with traditional forms of academia. Despite his considerable knowledge in various fields, Faustus craves more and turns to necromancy in his quest for ultimate power. In his study, he debates the merits of different disciplines before ultimately deciding to delve into magic. He is soon joined by companions who encourage his pursuits, and we witness his internal conflict between good and evil as he is tempted by both a Good Angel and an Evil Angel. As Faustus embarks on his fateful journey, he prepares to conjure Mephistophilis, a demon who will fulfill his desires but at a dire cost. This complex interplay of ambition and moral choice sets the stage for Faustus's tragic fall. (This is an automatically generated summary.)"),
+        val books = listOf(
+            Pair("The shadow on the spark", "https://www.gutenberg.org/ebooks/75049.txt.utf-8"),
+            Pair("Borderland", "https://www.gutenberg.org/ebooks/75051.txt.utf-8"),
+            Pair("The King in Yellow", "https://www.gutenberg.org/ebooks/8492.txt.utf-8"),
+            Pair("The Bee-Master of Warrilow", "https://www.gutenberg.org/ebooks/63208.txt.utf-8"),
+            Pair("The Yellow Fairy Book", "https://www.gutenberg.org/ebooks/28314.txt.utf-8"),
         );
 
         val skippedSymbols = listOf(',', '"', '(', ')')
@@ -32,48 +36,34 @@ class BookDownloadService: Service() {
 
     private val handler = Handler()
 
-    private var books = mutableListOf<String>()
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("MyService ----> ", "onStartCommand()")
         download()
         return START_STICKY
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-    }
-
     private fun download() {
 
-        handler.postDelayed({
+        Log.d("MyService ----> ", "downloading")
 
-            Log.d("MyService ----> ", "downloading")
+        coroutineScope.launch {
+            books.map { pair -> coroutineScope.async {
+                val bookContent = getRequest(pair.second) ?: "Oops"
 
-            val book = hardCodedBooks.random()
+                val bookData = BookData(
+                    pair.first,
+                    countLetters(bookContent),
+                    countWords(bookContent),
+                    findMostCommonWord(bookContent) ?: "n/a"
+                )
 
-            val bookData = BookData(
-                book.first,
-                countLetters(book.second),
-                countWords(book.second),
-                findMostCommonWord(book.second) ?: "n/a"
-            )
-
-            val broadcastIntent = Intent("com.example.DATA_DOWNLOADED")
-            bookDataToIntent(bookData, broadcastIntent)
-            sendBroadcast(Intent(broadcastIntent))
-
-            if(!checkNotificationPermission(this)){
-                Toast.makeText(this, "⛔⛔⛔", Toast.LENGTH_SHORT).show()
-            }
-            else {
-                postNotification(this)
-            }
+                val broadcastIntent = Intent("com.example.DATA_DOWNLOADED")
+                bookDataToIntent(bookData, broadcastIntent)
+                sendBroadcast(broadcastIntent)
+            }}.awaitAll()
 
             stopSelf()
-
-        }, 4000)
+        }
     }
 
     override fun onBind(p0: Intent?): IBinder? {
@@ -83,40 +73,30 @@ class BookDownloadService: Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        coroutineScope.cancel()
         handler.removeCallbacksAndMessages(null)
         Log.d("MyService ----> ", "onDestroy()")
     }
 
-    private fun createNotificationChannel(){
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.O){
-            return
+    suspend fun getRequest(url: String): String? = withContext(Dispatchers.IO){
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build();
+
+        try{
+            client.newCall(request).execute().use { response ->
+                if(!response.isSuccessful){
+                    Log.d("", "Http Error: ${response.code}")
+                }
+
+                response.body?.string().orEmpty()
+            }
         }
-
-        val channelId = "default_channel"
-        val channelName = "uni_app_notification_channel"
-        val channelDescription = "Notification channel for uni apps"
-        val channelImportance = NotificationManager.IMPORTANCE_HIGH
-
-        val channel = NotificationChannel(channelId, channelName, channelImportance).apply {
-            description = channelDescription
+        catch(exc: IOException){
+            Log.d("", "Exception: ${exc.message}")
+            return@withContext null
         }
-
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
     }
 
-    fun checkNotificationPermission(context: Context): Boolean{
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
-            val permissionState = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            )
-
-            return permissionState == PackageManager.PERMISSION_GRANTED
-        }
-
-        return true
-    }
 
     private fun countWords(text: String): Int{
         return text
@@ -133,6 +113,7 @@ class BookDownloadService: Service() {
         val words = text
             .filterNot { skippedSymbols.contains(it) }
             .split(" ")
+            .filterNot { it == "" || it == " " }
             // Removes apostrophes
             .map { it.replace("'[a-z]".toRegex(), "") }
             .filterNot { skippedWords.contains(it) }
