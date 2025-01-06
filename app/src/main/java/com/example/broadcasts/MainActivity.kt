@@ -64,39 +64,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        createNotificationChannel()
     }
 
-    private fun createNotificationChannel(){
-        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.O){
-            return
-        }
 
-        val channelId = "default_channel"
-        val channelName = "uni_app_notification_channel"
-        val channelDescription = "Notification channel for uni apps"
-        val channelImportance = NotificationManager.IMPORTANCE_HIGH
-
-        val channel = NotificationChannel(channelId, channelName, channelImportance).apply {
-            description = channelDescription
-        }
-
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
-    }
-}
-
-fun checkNotificationPermission(context: Context): Boolean{
-    if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
-        val permissionState = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        )
-
-        return permissionState == PackageManager.PERMISSION_GRANTED
-    }
-
-    return true
 }
 
 @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -125,13 +95,6 @@ fun AppContent(modifier: Modifier = Modifier){
     DisposableEffect(Unit) {
         val receiver = BookBroadcastReceiver {
             books = books.plus(it)
-
-            if(!checkNotificationPermission(context)){
-                Toast.makeText(context, "⛔⛔⛔", Toast.LENGTH_SHORT).show()
-            }
-            else {
-                postNotification(context)
-            }
         }
         val intentFilter = IntentFilter("com.example.DATA_DOWNLOADED")
 

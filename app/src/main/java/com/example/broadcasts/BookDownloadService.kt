@@ -1,10 +1,19 @@
 package com.example.broadcasts
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.util.Log
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 class BookDownloadService: Service() {
 
@@ -31,26 +40,40 @@ class BookDownloadService: Service() {
         return START_STICKY
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+    }
+
     private fun download() {
 
-        Log.d("MyService ----> ", "downloading")
-        handler.postDelayed({ download() }, 4000)
+        handler.postDelayed({
 
-        val book = hardCodedBooks.random()
+            Log.d("MyService ----> ", "downloading")
 
-        val bookData = BookData(
-            book.first,
-            countLetters(book.second),
-            countWords(book.second),
-            findMostCommonWord(book.second) ?: "n/a"
-        )
+            val book = hardCodedBooks.random()
 
-        val broadcastIntent = Intent("com.example.DATA_DOWNLOADED")
-        bookDataToIntent(bookData, broadcastIntent)
-        sendBroadcast(Intent(broadcastIntent))
+            val bookData = BookData(
+                book.first,
+                countLetters(book.second),
+                countWords(book.second),
+                findMostCommonWord(book.second) ?: "n/a"
+            )
 
-        stopSelf()
+            val broadcastIntent = Intent("com.example.DATA_DOWNLOADED")
+            bookDataToIntent(bookData, broadcastIntent)
+            sendBroadcast(Intent(broadcastIntent))
 
+            if(!checkNotificationPermission(this)){
+                Toast.makeText(this, "⛔⛔⛔", Toast.LENGTH_SHORT).show()
+            }
+            else {
+                postNotification(this)
+            }
+
+            stopSelf()
+
+        }, 4000)
     }
 
     override fun onBind(p0: Intent?): IBinder? {
@@ -62,6 +85,37 @@ class BookDownloadService: Service() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         Log.d("MyService ----> ", "onDestroy()")
+    }
+
+    private fun createNotificationChannel(){
+        if(Build.VERSION.SDK_INT < Build.VERSION_CODES.O){
+            return
+        }
+
+        val channelId = "default_channel"
+        val channelName = "uni_app_notification_channel"
+        val channelDescription = "Notification channel for uni apps"
+        val channelImportance = NotificationManager.IMPORTANCE_HIGH
+
+        val channel = NotificationChannel(channelId, channelName, channelImportance).apply {
+            description = channelDescription
+        }
+
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+    }
+
+    fun checkNotificationPermission(context: Context): Boolean{
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+            val permissionState = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            )
+
+            return permissionState == PackageManager.PERMISSION_GRANTED
+        }
+
+        return true
     }
 
     private fun countWords(text: String): Int{
