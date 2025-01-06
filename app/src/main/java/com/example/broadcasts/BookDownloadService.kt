@@ -16,11 +16,12 @@ class BookDownloadService: Service() {
             Pair("Some Christmas Stories", "\"Some Christmas Stories\" by Charles Dickens is a collection of short stories written during the mid-19th century. The book captures the spirit of Christmas through various narratives that reflect on childhood, nostalgia, family, and the meaning of the holiday season. The stories delve into themes of joy, sorrow, and the passage of time, often featuring characters that embody the essence of Christmas. The beginning of the book introduces readers to the first story, \"A Christmas Tree,\" where the narrator reflects on a delightful Christmas gathering with children around a beautifully decorated tree. The narrative depicts the enchantment of childhood, evoking vivid memories of toys and festivities that spark the imagination. As the narrator reminisces about their own Christmas tree and the toys that adorned it, we see an exploration of the transition from the innocence of youth to the complexities of adulthood, interspersed with elements of nostalgia and whimsy. The opening sets the tone for a rich emotional journey through the various stories that follow, encapsulating the warmth and reflections associated with the holiday season. (This is an automatically generated summary.)"),
             Pair("The Tragical History of Doctor Faustus", "\"The Tragical History of Doctor Faustus\" by Christopher Marlowe is a play that was likely written during the late 16th century. This dramatic work explores themes of ambition, desire, and the consequences of pursuing forbidden knowledge through the tragic story of its main character, Dr. Faustus, a scholar who seeks to gain unlimited knowledge and power by making a pact with the devil. The opening of the play introduces us to Dr. Faustus, who is disillusioned with traditional forms of academia. Despite his considerable knowledge in various fields, Faustus craves more and turns to necromancy in his quest for ultimate power. In his study, he debates the merits of different disciplines before ultimately deciding to delve into magic. He is soon joined by companions who encourage his pursuits, and we witness his internal conflict between good and evil as he is tempted by both a Good Angel and an Evil Angel. As Faustus embarks on his fateful journey, he prepares to conjure Mephistophilis, a demon who will fulfill his desires but at a dire cost. This complex interplay of ambition and moral choice sets the stage for Faustus's tragic fall. (This is an automatically generated summary.)"),
         );
+
+        val skippedSymbols = listOf(',', '"', '(', ')')
+        val skippedWords = listOf<String>()
     }
 
     private val handler = Handler()
-    private var currentBook = 0
-    private val total = hardCodedBooks.size
 
     private var books = mutableListOf<String>()
 
@@ -30,22 +31,26 @@ class BookDownloadService: Service() {
         return START_STICKY
     }
 
-    private fun download(){
-        if(currentBook < total) {
-            Log.d("MyService ----> ", "downloading: $currentBook")
-            handler.postDelayed({download()}, 1000)
+    private fun download() {
 
-            books.add(hardCodedBooks[currentBook].first)
-            books.add(hardCodedBooks[currentBook].second)
-            currentBook++;
-        }
-        else{
-            Log.d("MyService ----> ", "Downloaded all")
-            val broadcastIntent = Intent("com.example.DATA_DOWNLOADED")
-            broadcastIntent.putStringArrayListExtra("BOOKS", ArrayList(books))
-            sendBroadcast(Intent(broadcastIntent))
-            stopSelf()
-        }
+        Log.d("MyService ----> ", "downloading")
+        handler.postDelayed({ download() }, 4000)
+
+        val book = hardCodedBooks.random()
+
+        val bookData = BookData(
+            book.first,
+            countLetters(book.second),
+            countWords(book.second),
+            findMostCommonWord(book.second) ?: "n/a"
+        )
+
+        val broadcastIntent = Intent("com.example.DATA_DOWNLOADED")
+        bookDataToIntent(bookData, broadcastIntent)
+        sendBroadcast(Intent(broadcastIntent))
+
+        stopSelf()
+
     }
 
     override fun onBind(p0: Intent?): IBinder? {
@@ -59,4 +64,29 @@ class BookDownloadService: Service() {
         Log.d("MyService ----> ", "onDestroy()")
     }
 
+    private fun countWords(text: String): Int{
+        return text
+            .filterNot { skippedSymbols.plus('\'').contains(it) }
+            .split(" ")
+            .size
+    }
+
+    private fun countLetters(text: String): Int{
+        return text.filterNot { skippedSymbols.plus('\'').contains(it) }.length
+    }
+
+    private fun findMostCommonWord(text: String): String?{
+        val words = text
+            .filterNot { skippedSymbols.contains(it) }
+            .split(" ")
+            // Removes apostrophes
+            .map { it.replace("'[a-z]".toRegex(), "") }
+            .filterNot { skippedWords.contains(it) }
+
+        return words
+            .groupingBy { it }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key
+    }
 }

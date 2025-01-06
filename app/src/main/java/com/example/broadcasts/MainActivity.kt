@@ -23,8 +23,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -99,7 +102,7 @@ fun checkNotificationPermission(context: Context): Boolean{
 @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
 fun postNotification(context: Context){
     val notificationBuilder = NotificationCompat.Builder(context, "default_channel").apply {
-        setContentTitle("Hejka!")
+        setContentTitle("A new Book just finished downloading!")
         setSmallIcon(R.mipmap.ic_launcher_round)
     }
 
@@ -113,14 +116,23 @@ fun postNotification(context: Context){
 @Composable
 fun AppContent(modifier: Modifier = Modifier){
 
-    var books by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var books by rememberSaveable { mutableStateOf(emptySet<BookData>()) }
 
     val context = LocalContext.current
     val downloadBooksIntent = Intent(context, BookDownloadService::class.java)
 
 
     DisposableEffect(Unit) {
-        val receiver = BookBroadcastReceiver { newBooks -> books = newBooks }
+        val receiver = BookBroadcastReceiver {
+            books = books.plus(it)
+
+            if(!checkNotificationPermission(context)){
+                Toast.makeText(context, "⛔⛔⛔", Toast.LENGTH_SHORT).show()
+            }
+            else {
+                postNotification(context)
+            }
+        }
         val intentFilter = IntentFilter("com.example.DATA_DOWNLOADED")
 
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
@@ -140,16 +152,6 @@ fun AppContent(modifier: Modifier = Modifier){
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        Button(onClick = {
-            if(!checkNotificationPermission(context)){
-                Toast.makeText(context, "⛔⛔⛔", Toast.LENGTH_SHORT).show()
-                return@Button
-            }
-
-            postNotification(context)
-        }) {
-            Text("Test")
-        }
 
         Button(
             modifier = Modifier.fillMaxWidth(),
@@ -158,24 +160,33 @@ fun AppContent(modifier: Modifier = Modifier){
                 Log.d("[Button]", "Clicked")
             }
         ) {
-            Text("\uD83D\uDCE5\uD83D\uDCD6Download Books\uD83D\uDCD6\uD83D\uDCE5")
+            Text("\uD83D\uDCE5\uD83D\uDCD6Download a Book\uD83D\uDCD6\uD83D\uDCE5")
         }
-
-        Text("Book count: ${books.size / 2}")
 
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
 
-            Row(modifier = Modifier.background(Color.LightGray)){
+            Row(
+                modifier = Modifier
+                    .background(Color.LightGray)
+                    .height(96.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ){
                 TableCell("Title")
-                TableCell("Description")
+                TableCell("Letter Count")
+                TableCell("Word count")
+                TableCell("Most common word")
             }
 
 
             LazyColumn {
-                items(books.zipWithNext().filterIndexed { index, _ -> index % 2 == 0 }){
-                    Row {
-                        TableCell(it.first)
-                        TableCell(it.second)
+                items(books.toList()){
+                    Row(
+                        Modifier.height(128.dp)
+                    ) {
+                        TableCell(it.title)
+                        TableCell(it.letterCount.toString())
+                        TableCell(it.wordCount.toString())
+                        TableCell(it.mostCommonWord)
                     }
                 }
             }
@@ -187,6 +198,10 @@ fun AppContent(modifier: Modifier = Modifier){
 fun RowScope.TableCell(text: String){
     Text(
         text = text,
-        modifier = Modifier.weight(1f).border(1.dp, Color.DarkGray).padding(8.dp),
+        modifier = Modifier
+            .weight(1f)
+            .border(1.dp, Color.DarkGray)
+            .padding(8.dp)
+            .fillMaxHeight(),
     )
 }
