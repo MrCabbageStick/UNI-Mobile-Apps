@@ -123,7 +123,7 @@ fun AppContent(modifier: Modifier = Modifier){
                 Log.d("[Button]", "Clicked")
             }
         ) {
-            Text("\uD83D\uDCE5\uD83D\uDCD6Download a Book\uD83D\uDCD6\uD83D\uDCE5")
+            Text("\uD83D\uDCE5\uD83D\uDCD6Download Books\uD83D\uDCD6\uD83D\uDCE5")
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
